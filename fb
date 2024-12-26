@@ -1,0 +1,54 @@
+// Backend: server.js
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const fetch = require('node-fetch');
+require('dotenv').config();
+
+const app = express();
+const PORT = 3000;
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+
+// Endpoint to generate Facebook post
+app.post('/generatePost', async (req, res) => {
+    const { input } = req.body;
+
+    if (!input || input.trim() === '') {
+        return res.status(400).json({ error: 'Input cannot be empty.' });
+    }
+
+    try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: 'gpt-3.5-turbo',
+                messages: [
+                    { role: 'system', content: 'You are an assistant that creates engaging Facebook posts.' },
+                    { role: 'user', content: `Generate an engaging Facebook post about: ${input}` },
+                ],
+                max_tokens: 150,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            res.json({ post: data.choices[0].message.content.trim() });
+        } else {
+            res.status(response.status).json({ error: data.error?.message || 'An error occurred with the OpenAI API.' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'An internal server error occurred.' });
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
